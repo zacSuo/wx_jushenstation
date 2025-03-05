@@ -1,0 +1,35 @@
+{
+  "pages": [
+    "pages/chat/chat",
+    "pages/products/products",
+    "pages/translate/translate"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#fff",
+    "navigationBarTitleText": "DeepSeek助手",
+    "navigationBarTextStyle": "black"
+  },
+  "tabBar": {
+    "color": "#999",
+    "selectedColor": "#1296db",
+    "backgroundColor": "#fff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/chat/chat",
+        "text": "语音对话"
+      },
+      {
+        "pagePath": "pages/products/products",
+        "text": "最新产品"
+      },
+      {
+        "pagePath": "pages/translate/translate",
+        "text": "翻译"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

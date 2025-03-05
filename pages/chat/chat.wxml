@@ -1,0 +1,57 @@
+<!--pages/chat/chat.wxml-->
+<view class="container">
+  <view class="chat-container">
+    <view class="messages">
+      <block wx:for="{{messages}}" wx:key="index">
+        <view class="message {{item.type === 'user' ? 'user-message' : 'ai-message'}}">
+          <view class="avatar">
+            <view class="{{item.type === 'user' ? 'user-avatar-placeholder' : 'ai-avatar-placeholder'}}"></view>
+          </view>
+          <view class="content">
+            <text>{{item.content}}</text>
+          </view>
+        </view>
+      </block>
+      
+      <view class="loading" wx:if="{{isLoading}}">
+        <view class="loading-dots">
+          <view class="dot"></view>
+          <view class="dot"></view>
+          <view class="dot"></view>
+        </view>
+      </view>
+    </view>
+  </view>
+  
+  <view class="footer">
+    <view class="input-area">
+      <input 
+        type="text" 
+        placeholder="输入消息..." 
+        value="{{inputValue}}" 
+        bindinput="handleInput"
+        disabled="{{recording || isLoading}}"
+      />
+      <button 
+        class="send-btn" 
+        bindtap="sendMessage" 
+        disabled="{{!inputValue.trim() || recording || isLoading}}"
+      >发送</button>
+    </view>
+    
+    <view class="voice-btn-area">
+      <button 
+        class="voice-btn {{recording ? 'recording' : ''}}" 
+        bindtouchstart="startRecord" 
+        bindtouchend="stopRecord"
+        disabled="{{isLoading}}"
+      >
+        <text>{{recording ? '松开结束' : '按住说话'}}</text>
+      </button>
+    </view>
+    
+    <view class="clear-btn-area">
+      <button class="clear-btn" bindtap="clearChat">清空对话</button>
+    </view>
+  </view>
+</view>

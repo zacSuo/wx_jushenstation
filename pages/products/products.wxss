@@ -1,0 +1,152 @@
+/* pages/products/products.wxss */
+.container {
+  padding-bottom: 30rpx;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: #fff;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #eee;
+}
+
+.tabs {
+  display: flex;
+  justify-content: space-around;
+  padding: 0 20rpx;
+}
+
+.tab {
+  padding: 15rpx 20rpx;
+  font-size: 28rpx;
+  color: #666;
+  position: relative;
+}
+
+.tab.active {
+  color: #1296db;
+  font-weight: bold;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40rpx;
+  height: 4rpx;
+  background-color: #1296db;
+  border-radius: 2rpx;
+}
+
+.products-list {
+  padding: 20rpx;
+}
+
+.product-card {
+  margin-bottom: 30rpx;
+  background-color: #fff;
+  border-radius: 12rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+}
+
+.product-image {
+  width: 100%;
+  height: 300rpx;
+}
+
+.product-image-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1296db, #8bc34a);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  font-size: 32rpx;
+}
+
+.product-image image {
+  width: 100%;
+  height: 100%;
+}
+
+.product-info {
+  padding: 20rpx;
+}
+
+.product-name {
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-bottom: 10rpx;
+}
+
+.product-description {
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 15rpx;
+  line-height: 1.5;
+}
+
+.product-tags {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 15rpx;
+}
+
+.tag {
+  font-size: 22rpx;
+  color: #1296db;
+  background-color: rgba(18, 150, 219, 0.1);
+  padding: 4rpx 12rpx;
+  border-radius: 20rpx;
+  margin-right: 10rpx;
+  margin-bottom: 10rpx;
+}
+
+.product-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10rpx;
+}
+
+.product-price {
+  font-size: 30rpx;
+  color: #ff6b6b;
+  font-weight: bold;
+}
+
+.product-actions {
+  display: flex;
+}
+
+.share-btn {
+  width: 60rpx;
+  height: 60rpx;
+  padding: 0;
+  line-height: 60rpx;
+  text-align: center;
+  background: none;
+  border: none;
+}
+
+.share-btn::after {
+  border: none;
+}
+
+.icon {
+  font-size: 36rpx;
+  color: #999;
+}
+
+.empty-tip {
+  text-align: center;
+  padding: 100rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}

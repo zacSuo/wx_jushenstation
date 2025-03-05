@@ -1,0 +1,49 @@
+<!--pages/products/products.wxml-->
+<view class="container">
+  <view class="header">
+    <view class="tabs">
+      <view 
+        wx:for="{{tabs}}" 
+        wx:key="index" 
+        class="tab {{currentTab === index ? 'active' : ''}}"
+        bindtap="switchTab"
+        data-index="{{index}}"
+      >
+        {{item}}
+      </view>
+    </view>
+  </view>
+  
+  <view class="products-list">
+    <view 
+      class="product-card" 
+      wx:for="{{products}}" 
+      wx:key="id"
+      bindtap="viewProductDetail"
+      data-id="{{item.id}}"
+    >
+      <view class="product-image">
+        <view class="product-image-placeholder">{{item.name}}</view>
+      </view>
+      <view class="product-info">
+        <view class="product-name">{{item.name}}</view>
+        <view class="product-description">{{item.description}}</view>
+        <view class="product-tags">
+          <text wx:for="{{item.tags}}" wx:key="index" wx:for-item="tag" class="tag">{{tag}}</text>
+        </view>
+        <view class="product-footer">
+          <view class="product-price">{{item.price}}</view>
+          <view class="product-actions">
+            <button class="share-btn" catchtap="shareProduct" data-id="{{item.id}}">
+              <text class="icon">↗</text>
+            </button>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+  
+  <view class="empty-tip" wx:if="{{products.length === 0}}">
+    <text>暂无产品信息</text>
+  </view>
+</view>
