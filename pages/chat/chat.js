@@ -115,18 +115,17 @@ Page({
 
   // 开始录音
   startRecord() {
+    // 检查是否正在加载中
+    if (this.data.isLoading) return
+    
     if (!this.data.canUseRecord) {
       this.requestRecordAuth()
       return
     }
 
-    // 检查是否已经在录音
-    if (this.data.recording) return
-    
-    // 开始录音
     const recorderManager = wx.getRecorderManager()
     
-    // 注册事件监听器
+    // 注册开始录音事件
     recorderManager.onStart(() => {
       console.log('录音开始')
       this.setData({
@@ -173,6 +172,7 @@ Page({
     recorderManager.onStop((res) => {
       console.log('录音结束', res)
       wx.hideToast() // 隐藏录音中提示
+      clearInterval(this.data.timer) // 确保计时器被清除
       
       this.setData({
         recording: false,
@@ -205,91 +205,112 @@ Page({
           util.recognizeAudioWithTencent(fileRes.data, (result) => {
             wx.hideLoading()
             
-            // 获取识别结果
-            const text = result.data.text
-            
-            // 检查是否是模拟模式
-            const isMock = result.data.mock === true
-            
-            // 如果是模拟模式，显示提示
-            if (isMock) {
-              wx.showModal({
-                title: '模拟模式',
-                content: 'API当前处于模拟模式，返回的是模拟数据。请检查API设置或网络连接。',
-                showCancel: false
-              })
-            }
-            
-            // 如果识别结果为空，则提示
-            if (!text || !text.trim()) {
+            try {
+              // 获取识别结果
+              const text = result.data && result.data.text ? result.data.text : '';
+              
+              // 检查是否是模拟模式
+              const isMock = result.data && result.data.mock === true;
+              
+              // 如果是模拟模式，显示提示
+              if (isMock) {
+                wx.showModal({
+                  title: '模拟模式',
+                  content: 'API当前处于模拟模式，返回的是模拟数据。请检查API设置或网络连接。',
+                  showCancel: false
+                })
+              }
+              
+              // 如果识别结果为空，则提示
+              if (!text || !text.trim()) {
+                this.setData({
+                  isLoading: false
+                })
+                wx.showToast({
+                  title: '未能识别您的语音',
+                  icon: 'none'
+                })
+                return
+              }
+              
+              // 添加用户消息
               this.setData({
-                isLoading: false
+                messages: [...this.data.messages, {
+                  type: 'user',
+                  content: text
+                }],
+                isLoading: true
+              }, () => {
+                this.scrollToBottom();
               })
-              wx.showToast({
-                title: '未能识别您的语音',
-                icon: 'none'
-              })
-              return
-            }
-            
-            // 添加用户消息
-            this.setData({
-              messages: [...this.data.messages, {
-                type: 'user',
-                content: text
-              }],
-              isLoading: true
-            }, () => {
-              this.scrollToBottom();
-            })
-            
-            // 准备消息历史 - 确保包含所有历史消息
-            const messageHistory = this.data.messages.map(msg => ({
-              role: msg.type === 'user' ? 'user' : 'assistant',
-              content: msg.content
-            }));
-            
-            console.log('发送语音识别后的聊天请求，消息历史:', JSON.stringify(messageHistory));
-            
-            // 调用AI对话API（使用腾讯混元API）
-            util.chatWithTencent(messageHistory, (result) => {
-              // 添加AI回复
-              if (result.data && result.data.choices && result.data.choices.length > 0) {
-                const aiResponse = result.data.choices[0].message.content;
+              
+              // 准备消息历史 - 确保包含所有历史消息
+              const messageHistory = this.data.messages.map(msg => ({
+                role: msg.type === 'user' ? 'user' : 'assistant',
+                content: msg.content
+              }));
+              
+              console.log('发送语音识别后的聊天请求，消息历史:', JSON.stringify(messageHistory));
+              
+              // 调用AI对话API（使用腾讯混元API）
+              util.chatWithTencent(messageHistory, (result) => {
+                try {
+                  // 添加AI回复
+                  if (result.data && result.data.choices && result.data.choices.length > 0) {
+                    const aiResponse = result.data.choices[0].message.content;
+                    
+                    this.setData({
+                      messages: [...this.data.messages, {
+                        type: 'ai',
+                        content: aiResponse
+                      }],
+                      isLoading: false
+                    }, () => {
+                      this.scrollToBottom();
+                    });
+                  } else {
+                    // 处理API返回格式不符合预期的情况
+                    wx.showToast({
+                      title: 'API返回格式错误',
+                      icon: 'none'
+                    });
+                    
+                    this.setData({
+                      isLoading: false
+                    });
+                  }
+                } catch (e) {
+                  console.error('处理AI回复时出错:', e);
+                  this.setData({
+                    isLoading: false
+                  });
+                  wx.showToast({
+                    title: '处理AI回复时出错',
+                    icon: 'none'
+                  });
+                }
+              }, (error) => {
+                console.error('AI对话失败', error)
                 
                 this.setData({
-                  messages: [...this.data.messages, {
-                    type: 'ai',
-                    content: aiResponse
-                  }],
                   isLoading: false
-                }, () => {
-                  this.scrollToBottom();
                 });
-              } else {
-                // 处理API返回格式不符合预期的情况
+                
                 wx.showToast({
-                  title: 'API返回格式错误',
+                  title: 'AI对话请求失败',
                   icon: 'none'
                 });
-                
-                this.setData({
-                  isLoading: false
-                });
-              }
-            }, (error) => {
-              console.error('AI对话失败', error)
-              
+              })
+            } catch (e) {
+              console.error('处理语音识别结果时出错:', e);
               this.setData({
                 isLoading: false
               });
-              
               wx.showToast({
-                title: 'AI对话请求失败',
+                title: '处理语音识别结果时出错',
                 icon: 'none'
               });
-            })
-            
+            }
           }, (error) => {
             console.error('语音识别失败', error)
             wx.hideLoading()
@@ -332,15 +353,38 @@ Page({
   
   // 结束录音
   stopRecord() {
+    console.log('停止录音被调用')
     // 检查是否正在录音
-    if (!this.data.recording) return
+    if (!this.data.recording) {
+      console.log('未在录音状态，忽略停止录音请求')
+      return
+    }
     
     // 停止计时
-    clearInterval(this.data.timer)
+    if (this.data.timer) {
+      console.log('清除计时器')
+      clearInterval(this.data.timer)
+      this.data.timer = null
+    }
     
-    // 停止录音
-    const recorderManager = wx.getRecorderManager()
-    recorderManager.stop()
+    try {
+      // 停止录音
+      console.log('准备停止录音管理器')
+      const recorderManager = wx.getRecorderManager()
+      recorderManager.stop()
+      console.log('录音管理器停止命令已发送')
+    } catch (e) {
+      console.error('停止录音时出错:', e)
+      // 确保UI状态正确
+      this.setData({
+        recording: false,
+        isLoading: false
+      })
+      wx.showToast({
+        title: '停止录音时出错',
+        icon: 'none'
+      })
+    }
   },
 
   // 处理文本输入

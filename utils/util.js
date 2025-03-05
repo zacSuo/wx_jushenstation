@@ -500,6 +500,85 @@ const chatWithAI = (messages, success, fail) => {
   });
 }
 
+// 使用腾讯混元进行聊天
+const chatWithTencent = (messages, success, fail) => {
+  console.log('开始使用腾讯混元进行聊天...');
+  
+  // 确保消息格式正确
+  const formattedMessages = messages.map(msg => {
+    // 确保role是正确的格式：user或assistant
+    let role = msg.role;
+    if (!role && msg.type) {
+      // 如果使用type字段，转换为role
+      role = msg.type === 'user' ? 'user' : 'assistant';
+    }
+    
+    return {
+      role: role,
+      content: msg.content
+    };
+  });
+  
+  // 如果在模拟模式下，直接返回模拟数据
+  if (USE_MOCK_MODE) {
+    console.log('使用模拟模式进行聊天');
+    setTimeout(() => {
+      success({
+        data: {
+          choices: [{
+            message: {
+              content: '这是模拟的AI回复。请检查API设置或网络连接。'
+            }
+          }],
+          mock: true
+        }
+      });
+    }, 1000);
+    return;
+  }
+  
+  console.log('调用腾讯混元聊天API...');
+  
+  callTencentAPI('chat', {
+    messages: formattedMessages,
+    model: 'hunyuan',
+    temperature: 0.7,
+    top_p: 0.9,
+    stream: false
+  }, (res) => {
+    console.log('聊天API响应:', res);
+    
+    // 如果是模拟模式，检查是否已经返回了模拟数据
+    if (USE_MOCK_MODE && res.data && res.data.choices && res.data.choices.length > 0 && res.data.choices[0].message.content.includes('模拟')) {
+      if (success) success(res);
+      return;
+    }
+    
+    // 正常API响应处理
+    if (res.data && res.data.choices && res.data.choices.length > 0) {
+      console.log('聊天成功:', res.data.choices[0].message.content);
+      if (success) success(res);
+    } else {
+      console.error('聊天API返回格式错误', res);
+      
+      // 如果API返回了错误信息，则使用模拟模式
+      USE_MOCK_MODE = true;
+      
+      // 递归调用自身，这次将使用模拟模式
+      chatWithTencent(messages, success, fail);
+    }
+  }, (error) => {
+    console.error('聊天API调用失败:', error);
+    
+    // 启用模拟模式
+    USE_MOCK_MODE = true;
+    console.log('启用模拟模式进行聊天');
+    
+    // 递归调用自身，这次将使用模拟模式
+    chatWithTencent(messages, success, fail);
+  });
+};
+
 // 翻译文本 (使用Deepseek的聊天API进行翻译)
 const translateText = (text, targetLang, success, fail) => {
   const targetLanguageName = targetLang === 'zh' ? '中文' : '英文'
@@ -578,6 +657,7 @@ module.exports = {
   recognizeAudio,
   recognizeAudioWithTencent,
   chatWithAI,
+  chatWithTencent,
   translateText,
   DEEPSEEK_API_KEY,
   DEEPSEEK_API_URL,
