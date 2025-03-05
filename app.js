@@ -41,7 +41,8 @@ App({
   globalData: {
     userInfo: null,
     apiKey: 'sk-d991df6a26154f2993e71e8ff9d03cab', // DeepSeek API密钥，实际使用时需要填入
-    apiUrl: 'https://api.deepseek.com', // DeepSeek API地址，根据实际情况修改
+    // 修改为云托管服务地址，格式为：https://{你的云托管服务域名}
+    apiUrl: 'https://你的云托管服务域名', // 云托管服务地址，需要替换为实际地址
     systemInfo: null
   }
 })

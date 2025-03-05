@@ -34,6 +34,26 @@ globalData: {
 }
 ```
 
+### 配置云托管服务
+
+本项目使用微信云托管服务作为中间层，用于处理与DeepSeek API的通信。请按照以下步骤配置：
+
+1. 在微信开发者工具中，选择"云托管"
+2. 点击"新建版本"
+3. 选择"代码上传"方式
+4. 上传本项目代码
+5. 在环境变量中配置`DEEPSEEK_API_KEY`，设置为您的DeepSeek API密钥
+6. 完成部署后，获取云托管服务的域名
+7. 在`app.js`中更新`apiUrl`为您的云托管服务域名：
+
+```javascript
+globalData: {
+  userInfo: null,
+  apiKey: '您的DeepSeek API密钥',
+  apiUrl: 'https://您的云托管服务域名'
+}
+```
+
 ## 项目结构
 
 ```
@@ -47,11 +67,30 @@ globalData: {
 │   └── translate/         // 翻译功能页面
 ├── utils/                 // 工具函数
 │   └── util.js            // 通用工具和API调用
+├── server.js              // 云托管服务后端代码
+├── Dockerfile             // 容器配置文件
+├── package.json           // 依赖配置
 └── project.config.json    // 项目配置文件
 ```
+
+## 云托管服务
+
+本项目包含了云托管服务所需的所有文件：
+
+- `Dockerfile`: 定义如何构建容器
+- `package.json`: 定义项目依赖
+- `server.js`: 后端服务器代码，处理API请求
+- `.dockerignore`: 排除不必要的文件
+
+云托管服务作为中间层，负责处理以下API请求：
+
+- `/speech-to-text`: 语音识别
+- `/chat`: 与AI对话
+- `/translate`: 文本翻译
 
 ## 注意事项
 
 - 本项目中的API调用需要有效的DeepSeek API密钥
 - 语音功能需要用户授权录音权限
-- 产品数据目前为静态数据，可根据需要修改为从服务器获取
+- 在开发阶段，`project.config.json`中的`urlCheck`设置为`false`，以便可以访问未配置的域名
+- 在生产环境中，应将`urlCheck`设置为`true`，并确保云托管服务域名已添加到小程序的合法域名列表中

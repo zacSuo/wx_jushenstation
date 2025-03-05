@@ -14,15 +14,15 @@ const formatNumber = n => {
   return n[1] ? n : '0' + n
 }
 
-// 调用DeepSeek API的通用方法
-const callDeepSeekAPI = (endpoint, data, success, fail) => {
+// 调用云托管服务的通用方法
+const callCloudAPI = (endpoint, data, success, fail) => {
   const app = getApp()
   
-  // 检查API密钥是否配置
-  if (!app.globalData.apiKey) {
-    console.warn('DeepSeek API密钥未配置')
+  // 检查API地址是否配置
+  if (!app.globalData.apiUrl || app.globalData.apiUrl.includes('你的云托管服务域名')) {
+    console.warn('云托管服务地址未正确配置')
     if (fail) {
-      fail({ errMsg: 'API密钥未配置' })
+      fail({ errMsg: '云托管服务地址未正确配置' })
     }
     return
   }
@@ -31,8 +31,7 @@ const callDeepSeekAPI = (endpoint, data, success, fail) => {
     url: `${app.globalData.apiUrl}/${endpoint}`,
     method: 'POST',
     header: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${app.globalData.apiKey}`
+      'Content-Type': 'application/json'
     },
     data: data,
     success: (res) => {
@@ -60,7 +59,7 @@ const callDeepSeekAPI = (endpoint, data, success, fail) => {
 
 // 语音识别
 const recognizeAudio = (audioBase64, success, fail) => {
-  callDeepSeekAPI('speech-to-text', {
+  callCloudAPI('speech-to-text', {
     audio: audioBase64,
     language: 'zh' // 默认中文
   }, success, fail)
@@ -68,7 +67,7 @@ const recognizeAudio = (audioBase64, success, fail) => {
 
 // 与AI对话
 const chatWithAI = (message, success, fail) => {
-  callDeepSeekAPI('chat', {
+  callCloudAPI('chat', {
     messages: [
       { role: 'user', content: message }
     ],
@@ -79,7 +78,7 @@ const chatWithAI = (message, success, fail) => {
 
 // 翻译文本
 const translateText = (text, targetLang, success, fail) => {
-  callDeepSeekAPI('translate', {
+  callCloudAPI('translate', {
     text: text,
     target_language: targetLang
   }, success, fail)
