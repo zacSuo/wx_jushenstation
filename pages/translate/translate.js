@@ -28,10 +28,13 @@ Page({
     // 新增变量用于实时语音识别
     realtimeRecognitionText: '',
     speechRecognizer: null,
-    autoPlay: true
+    autoPlay: true,
+    // 新增变量用于文本输入
+    inputText: ''
   },
 
   onLoad: function (options) {
+    console.log('翻译页面加载')
     // 从本地存储加载历史记录
     const history = wx.getStorageSync('translateHistory') || []
     this.setData({ history })
@@ -53,41 +56,69 @@ Page({
     
     recorderManager.onStop((res) => {
       console.log('录音结束', res)
-      this.setData({ isListening: false })
-      
-      const { tempFilePath } = res
-      
-      // 将音频文件转为base64
-      wx.getFileSystemManager().readFile({
-        filePath: tempFilePath,
-        encoding: 'base64',
-        success: (res) => {
-          // 调用语音识别API
-          this.recognizeAndTranslate(res.data)
-        },
-        fail: (err) => {
-          console.error('读取音频文件失败', err)
-          wx.showToast({
-            title: '读取音频失败',
-            icon: 'none'
-          })
-        }
+      this.setData({
+        isListening: false
       })
+      
+      // 停止实时语音识别
+      this.stopRealtimeRecognition()
+      
+      if (res.tempFilePath) {
+        // 读取录音文件并进行识别
+        wx.getFileSystemManager().readFile({
+          filePath: res.tempFilePath,
+          encoding: 'base64',
+          success: (res) => {
+            const base64Audio = res.data
+            // 进行语音识别和翻译
+            this.recognizeAndTranslate(base64Audio)
+          },
+          fail: (err) => {
+            console.error('读取录音文件失败', err)
+            wx.showToast({
+              title: '读取录音失败',
+              icon: 'none'
+            })
+          }
+        })
+      }
     })
     
     recorderManager.onError((err) => {
       console.error('录音错误', err)
-      this.setData({ isListening: false })
+      this.setData({ 
+        isListening: false,
+        realtimeRecognitionText: ''
+      })
       wx.showToast({
         title: '录音出错',
         icon: 'none'
       })
     })
     
+    this.setData({ recordManager: recorderManager })
+    
     // 初始化语音识别器
     this.initSpeechRecognizer()
+  },
+  
+  onShow: function() {
+    console.log('翻译页面显示')
+    // 重置页面状态
+    this.setData({
+      isListening: false,
+      isTranslating: false,
+      realtimeRecognitionText: ''
+    })
     
-    this.setData({ recordManager: recorderManager })
+    // 从本地存储重新加载历史记录
+    const history = wx.getStorageSync('translateHistory') || []
+    this.setData({ history })
+    
+    // 确保页面元素正确显示
+    wx.nextTick(() => {
+      this.scrollToBottom()
+    })
   },
   
   // 滚动到底部
@@ -205,6 +236,85 @@ Page({
     )
   },
 
+  // 处理文本输入
+  handleInputText: function(e) {
+    this.setData({
+      inputText: e.detail.value,
+      translationMode: 'text'
+    })
+  },
+
+  // 发送文本进行翻译
+  sendTextToTranslate: function() {
+    const { inputText } = this.data
+    
+    if (!inputText.trim()) {
+      wx.showToast({
+        title: '请输入要翻译的文本',
+        icon: 'none'
+      })
+      return
+    }
+    
+    this.setData({
+      isTranslating: true
+    })
+    
+    wx.showLoading({ title: '翻译中...' })
+    
+    // 确定源语言和目标语言
+    const sourceLang = this.data.sourceLang
+    const targetLang = this.data.targetLang
+    
+    // 调用翻译API
+    util.translateText(inputText, targetLang, 
+      (res) => {
+        wx.hideLoading()
+        
+        if (res && res.translation) {
+          const translatedText = res.translation
+          
+          // 保存到历史记录
+          this.saveToHistory(inputText, translatedText, sourceLang, targetLang)
+          
+          this.setData({
+            recognitionText: inputText,
+            voiceTranslationText: translatedText,
+            inputText: '',
+            isTranslating: false
+          }, () => {
+            this.scrollToBottom();
+            
+            // 自动播放翻译结果
+            if (this.data.autoPlay) {
+              this.playVoiceTranslation()
+            }
+          })
+        } else {
+          this.setData({
+            isTranslating: false
+          })
+          wx.showToast({
+            title: '翻译失败',
+            icon: 'none'
+          })
+        }
+      },
+      (err) => {
+        wx.hideLoading()
+        console.error('翻译失败', err)
+        
+        this.setData({
+          isTranslating: false
+        })
+        wx.showToast({
+          title: '翻译请求失败',
+          icon: 'none'
+        })
+      }
+    )
+  },
+
   // 输入源文本
   handleSourceInput: function(e) {
     this.setData({
@@ -278,8 +388,8 @@ Page({
       (res) => {
         wx.hideLoading()
         
-        if (res.data && res.data.translation) {
-          const translatedText = res.data.translation
+        if (res && res.translation) {
+          const translatedText = res.translation
           
           // 添加到历史记录
           const newHistory = [...this.data.history]
@@ -342,8 +452,8 @@ Page({
       (res) => {
         wx.hideLoading()
         
-        if (res.data && res.data.translation) {
-          const translatedText = res.data.translation
+        if (res && res.translation) {
+          const translatedText = res.translation
           
           // 添加到历史记录
           const newHistory = [...this.data.history]
@@ -392,33 +502,30 @@ Page({
 
   // 保存到历史记录
   saveToHistory: function(sourceText, translatedText, sourceLang, targetLang) {
-    // 限制历史记录长度
-    const MAX_HISTORY = 20
+    if (!sourceText || !translatedText) return;
     
-    // 创建新的历史记录项
-    const newHistoryItem = {
-      id: Date.now(),
+    // 创建历史记录项
+    const historyItem = {
+      id: new Date().getTime().toString(),
       sourceText: sourceText,
       translatedText: translatedText,
-      sourceLang: this.data.languages[sourceLang].name,
-      targetLang: this.data.languages[targetLang].name,
-      timestamp: new Date().toLocaleString()
-    }
+      sourceLang: sourceLang === 'zh' ? '中文' : '英语',
+      targetLang: targetLang === 'zh' ? '中文' : '英语',
+      timestamp: new Date().getTime()
+    };
     
     // 添加到历史记录
-    let history = this.data.history
-    history.unshift(newHistoryItem)
+    const history = [...this.data.history];
+    history.unshift(historyItem); // 将新记录添加到开头
     
-    // 限制历史记录长度
-    if (history.length > MAX_HISTORY) {
-      history = history.slice(0, MAX_HISTORY)
+    // 限制历史记录数量，最多保留50条
+    if (history.length > 50) {
+      history.pop();
     }
     
-    // 更新数据
-    this.setData({ history })
-    
-    // 保存到本地存储
-    wx.setStorageSync('translateHistory', history)
+    // 更新状态并保存到本地存储
+    this.setData({ history });
+    wx.setStorageSync('translateHistory', history);
   },
 
   // 复制翻译结果
@@ -454,23 +561,16 @@ Page({
     const index = e.currentTarget.dataset.index
     const item = this.data.history[index]
     
-    // 找到对应的语言代码
-    let sourceLangCode = 'zh'
-    let targetLangCode = 'en'
+    if (!item) return;
     
-    for (const code in this.data.languages) {
-      if (this.data.languages[code].name === item.sourceLang) {
-        sourceLangCode = code
-      }
-      if (this.data.languages[code].name === item.targetLang) {
-        targetLangCode = code
-      }
-    }
+    // 设置源语言和目标语言
+    const sourceLangCode = item.sourceLang === '中文' ? 'zh' : 'en'
+    const targetLangCode = item.targetLang === '中文' ? 'zh' : 'en'
     
-    // 更新数据
+    // 更新界面
     this.setData({
-      sourceText: item.sourceText,
-      translatedText: item.translatedText,
+      recognitionText: item.sourceText,
+      voiceTranslationText: item.translatedText,
       sourceLang: sourceLangCode,
       targetLang: targetLangCode,
       sourceLangIndex: sourceLangCode === 'zh' ? 0 : 1,
@@ -481,195 +581,223 @@ Page({
 
   // 删除历史记录
   deleteHistoryItem: function(e) {
+    // 阻止事件冒泡，避免触发useHistoryItem
+    e.stopPropagation();
+    
     const index = e.currentTarget.dataset.index
-    let history = this.data.history
+    let history = [...this.data.history]
     history.splice(index, 1)
     
     this.setData({ history })
     wx.setStorageSync('translateHistory', history)
+    
+    wx.showToast({
+      title: '已删除',
+      icon: 'success',
+      duration: 1000
+    })
   },
-
+  
   // 清空所有历史记录
   clearAllHistory: function() {
-    this.setData({
-      history: []
-    });
+    wx.showModal({
+      title: '确认清空',
+      content: '确定要清空所有翻译历史记录吗？',
+      success: (res) => {
+        if (res.confirm) {
+          this.setData({ history: [] })
+          wx.setStorageSync('translateHistory', [])
+          
+          wx.showToast({
+            title: '已清空历史记录',
+            icon: 'success',
+            duration: 1000
+          })
+        }
+      }
+    })
   },
 
   // 开始录音
   startRecording: function () {
-    const recordManager = this.data.recordManager;
-    recordManager.start({
-      duration: 60000, // 录音的最长时间，单位 ms
-      sampleRate: 44100, // 采样率
-      numberOfChannels: 1, // 录音通道数
-      encodeBitRate: 192000, // 编码码率
-      format: 'mp3', // 音频格式
-      frameSize: 50 // 指定帧大小，单位 KB
-    });
+    console.log('开始录音')
+    if (!this.data.recordManager) {
+      console.error('录音管理器未初始化')
+      wx.showToast({
+        title: '录音功能初始化失败',
+        icon: 'none'
+      })
+      return
+    }
+    
+    // 检查录音权限
+    wx.authorize({
+      scope: 'scope.record',
+      success: () => {
+        const recordManager = this.data.recordManager
+        recordManager.start({
+          duration: 60000, // 录音的最长时间，单位 ms
+          sampleRate: 44100, // 采样率
+          numberOfChannels: 1, // 录音通道数
+          encodeBitRate: 192000, // 编码码率
+          format: 'mp3', // 音频格式
+          frameSize: 50 // 指定帧大小，单位 KB
+        })
+      },
+      fail: () => {
+        wx.showToast({
+          title: '请授权录音权限',
+          icon: 'none'
+        })
+      }
+    })
   },
-
+  
   // 停止录音
   stopRecording: function () {
-    const recordManager = this.data.recordManager;
-    this.stopRealtimeRecognition();
-    recordManager.stop();
+    console.log('停止录音')
+    if (!this.data.recordManager) {
+      console.error('录音管理器未初始化')
+      return
+    }
+    
+    this.stopRealtimeRecognition()
+    this.data.recordManager.stop()
   },
 
   // 播放翻译结果 (文本输入翻译)
   playTranslation: function() {
+    // 如果没有翻译结果，直接返回
+    if (!this.data.translatedText) {
+      wx.showToast({
+        title: '没有可播放的翻译',
+        icon: 'none'
+      })
+      return
+    }
+    
     // 使用微信小程序的文本转语音接口
     wx.showLoading({ title: '加载语音...' })
     
-    // 调用Deepseek的文本转语音API
-    const text = encodeURIComponent(this.data.translatedText)
-    const lang = this.data.targetLang
-    
-    // 创建音频上下文
+    // 使用系统内置的文本转语音功能
     const innerAudioContext = wx.createInnerAudioContext()
     
-    // 设置音频源为Deepseek的文本转语音API
-    innerAudioContext.src = `https://api.deepseek.com/v1/audio/speech?text=${text}&voice=deepseek_tts&language=${lang}`
+    // 根据目标语言选择合适的语音合成参数
+    const lang = this.data.targetLang === 'zh' ? 'zh_CN' : 'en_US'
     
-    // 设置请求头
+    // 使用微信的文本转语音功能
     wx.request({
-      url: `https://api.deepseek.com/v1/audio/speech`,
-      method: 'POST',
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${util.DEEPSEEK_API_KEY}`
-      },
-      data: {
-        model: 'deepseek-tts',
-        input: this.data.translatedText,
-        voice: 'default'
-      },
+      url: `https://tts.baidu.com/text2audio?tex=${encodeURIComponent(this.data.translatedText)}&cuid=baike&lan=${lang}&ctp=1&pdt=301&vol=9&rate=32&per=0`,
       responseType: 'arraybuffer',
       success: (res) => {
-        // 将返回的音频数据转为临时文件
-        const fs = wx.getFileSystemManager()
-        const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio.mp3`
-        
-        fs.writeFile({
-          filePath: tempFilePath,
-          data: res.data,
-          encoding: 'binary',
-          success: () => {
-            // 播放音频
-            innerAudioContext.src = tempFilePath
-            innerAudioContext.play()
-            wx.hideLoading()
-          },
-          fail: (err) => {
-            console.error('写入音频文件失败', err)
-            wx.hideLoading()
-            wx.showToast({
-              title: '语音生成失败',
-              icon: 'none'
-            })
-          }
-        })
+        if (res.statusCode === 200) {
+          // 将音频数据转换为临时文件
+          const fs = wx.getFileSystemManager()
+          const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio.mp3`
+          
+          fs.writeFile({
+            filePath: tempFilePath,
+            data: res.data,
+            encoding: 'binary',
+            success: () => {
+              // 播放音频
+              innerAudioContext.src = tempFilePath
+              innerAudioContext.play()
+              wx.hideLoading()
+            },
+            fail: (err) => {
+              console.error('写入音频文件失败', err)
+              wx.hideLoading()
+              wx.showToast({
+                title: '播放失败',
+                icon: 'none'
+              })
+            }
+          })
+        } else {
+          wx.hideLoading()
+          wx.showToast({
+            title: '获取语音失败',
+            icon: 'none'
+          })
+        }
       },
       fail: (err) => {
-        console.error('文本转语音请求失败', err)
+        console.error('请求语音合成失败', err)
         wx.hideLoading()
         wx.showToast({
-          title: '语音生成请求失败',
+          title: '语音合成请求失败',
           icon: 'none'
         })
       }
-    })
-    
-    innerAudioContext.onPlay(() => {
-      console.log('开始播放翻译')
-    })
-    
-    innerAudioContext.onError((res) => {
-      console.log(res.errMsg)
-      console.log(res.errCode)
-      wx.hideLoading()
-      // 播放失败时显示提示
-      wx.showToast({
-        title: '语音播放失败',
-        icon: 'none'
-      })
     })
   },
-
+  
   // 播放翻译结果 (语音输入翻译)
-  playVoiceTranslation: function () {
+  playVoiceTranslation: function() {
+    // 如果没有翻译结果，直接返回
+    if (!this.data.voiceTranslationText) {
+      wx.showToast({
+        title: '没有可播放的翻译',
+        icon: 'none'
+      })
+      return
+    }
+    
     // 使用微信小程序的文本转语音接口
     wx.showLoading({ title: '加载语音...' })
     
-    // 调用Deepseek的文本转语音API
-    const text = encodeURIComponent(this.data.voiceTranslationText || this.data.translatedText)
-    const lang = this.data.targetLang
-    
-    // 创建音频上下文
+    // 使用系统内置的文本转语音功能
     const innerAudioContext = wx.createInnerAudioContext()
     
-    // 调用Deepseek的文本转语音API
+    // 根据目标语言选择合适的语音合成参数
+    const lang = this.data.targetLang === 'zh' ? 'zh_CN' : 'en_US'
+    
+    // 使用微信的文本转语音功能
     wx.request({
-      url: `https://api.deepseek.com/v1/audio/speech`,
-      method: 'POST',
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${util.DEEPSEEK_API_KEY}`
-      },
-      data: {
-        model: 'deepseek-tts',
-        input: text,
-        voice: 'default'
-      },
+      url: `https://tts.baidu.com/text2audio?tex=${encodeURIComponent(this.data.voiceTranslationText)}&cuid=baike&lan=${lang}&ctp=1&pdt=301&vol=9&rate=32&per=0`,
       responseType: 'arraybuffer',
       success: (res) => {
-        // 将返回的音频数据转为临时文件
-        const fs = wx.getFileSystemManager()
-        const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio.mp3`
-        
-        fs.writeFile({
-          filePath: tempFilePath,
-          data: res.data,
-          encoding: 'binary',
-          success: () => {
-            // 播放音频
-            innerAudioContext.src = tempFilePath
-            innerAudioContext.play()
-            wx.hideLoading()
-          },
-          fail: (err) => {
-            console.error('写入音频文件失败', err)
-            wx.hideLoading()
-            wx.showToast({
-              title: '语音生成失败',
-              icon: 'none'
-            })
-          }
-        })
+        if (res.statusCode === 200) {
+          // 将音频数据转换为临时文件
+          const fs = wx.getFileSystemManager()
+          const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio.mp3`
+          
+          fs.writeFile({
+            filePath: tempFilePath,
+            data: res.data,
+            encoding: 'binary',
+            success: () => {
+              // 播放音频
+              innerAudioContext.src = tempFilePath
+              innerAudioContext.play()
+              wx.hideLoading()
+            },
+            fail: (err) => {
+              console.error('写入音频文件失败', err)
+              wx.hideLoading()
+              wx.showToast({
+                title: '播放失败',
+                icon: 'none'
+              })
+            }
+          })
+        } else {
+          wx.hideLoading()
+          wx.showToast({
+            title: '获取语音失败',
+            icon: 'none'
+          })
+        }
       },
       fail: (err) => {
-        console.error('文本转语音请求失败', err)
+        console.error('请求语音合成失败', err)
         wx.hideLoading()
         wx.showToast({
-          title: '语音生成请求失败',
+          title: '语音合成请求失败',
           icon: 'none'
         })
       }
-    })
-    
-    innerAudioContext.onPlay(() => {
-      console.log('开始播放语音翻译')
-    })
-    
-    innerAudioContext.onError((res) => {
-      console.log(res.errMsg)
-      console.log(res.errCode)
-      wx.hideLoading()
-      // 播放失败时显示提示
-      wx.showToast({
-        title: '语音播放失败',
-        icon: 'none'
-      })
     })
   },
 

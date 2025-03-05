@@ -11,7 +11,7 @@
           <text>{{recognitionText}}</text>
         </view>
       </view>
-      
+
       <!-- 语音翻译结果 -->
       <view class="message user-message" wx:if="{{voiceTranslationText && !isListening}}">
         <view class="avatar">
@@ -21,7 +21,7 @@
           <text>{{voiceTranslationText}}</text>
         </view>
       </view>
-      
+
       <!-- 实时语音识别结果 -->
       <view class="loading" wx:if="{{isListening}}">
         <view class="loading-dots">
@@ -33,46 +33,43 @@
           <text>{{realtimeRecognitionText}}</text>
         </view>
       </view>
-      
+
       <!-- 添加底部空白区域，确保最后一条消息不被按钮遮挡 -->
       <view class="message-bottom-space"></view>
     </view>
   </view>
-  
+
   <view class="footer">
     <!-- 第一行：语音按钮 -->
     <view class="voice-row">
-      <button 
-        class="voice-btn {{isListening ? 'recording' : ''}}" 
-        bindtouchstart="startRecording" 
-        bindtouchend="stopRecording"
-        disabled="{{isTranslating}}"
-      >
+      <button class="voice-btn {{isListening ? 'recording' : ''}}" bindtouchstart="startRecording" bindtouchend="stopRecording" disabled="{{isTranslating}}">
         {{isListening ? '松开结束' : '按住说话'}}
       </button>
     </view>
-    
+
+    <!-- 第二行：输入框和发送按钮 -->
+    <view class="input-row">
+      <input type="text" placeholder="输入要翻译的文本..." value="{{inputText}}" bindinput="handleInputText" disabled="{{isListening || isTranslating}}" />
+      <view class="send-btn {{!inputText.trim() || isListening || isTranslating ? 'disabled' : ''}}" bindtap="sendTextToTranslate">
+        翻译
+      </view>
+    </view>
+
     <!-- 历史记录按钮 -->
     <view class="history-row" bindtap="toggleHistory">
       <view class="history-btn">
         翻译历史 {{showHistory ? '▲' : '▼'}}
       </view>
     </view>
-    
+
     <!-- 历史记录列表 -->
     <view class="history-list" wx:if="{{showHistory}}">
       <view wx:if="{{history.length === 0}}" class="empty-history">
         <text>暂无翻译历史</text>
       </view>
-      
+
       <view wx:else>
-        <view 
-          class="history-item" 
-          wx:for="{{history}}" 
-          wx:key="id"
-          bindtap="useHistoryItem"
-          data-index="{{index}}"
-        >
+        <view class="history-item" wx:for="{{history}}" wx:key="id" bindtap="useHistoryItem" data-index="{{index}}">
           <view class="history-content">
             <view class="history-source">
               <text class="history-text">{{item.sourceText}}</text>
@@ -83,13 +80,9 @@
               <text class="history-lang">{{item.targetLang}}</text>
             </view>
           </view>
-          <view 
-            class="delete-btn" 
-            catchtap="deleteHistoryItem" 
-            data-index="{{index}}"
-          >×</view>
+          <view class="delete-btn" catchtap="deleteHistoryItem" data-index="{{index}}">×</view>
         </view>
-        
+
         <view class="clear-btn" bindtap="clearAllHistory">
           清空历史记录
         </view>

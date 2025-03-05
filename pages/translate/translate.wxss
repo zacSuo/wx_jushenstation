@@ -156,6 +156,39 @@
   background-color: #ff3b30;
 }
 
+/* 输入框和发送按钮行 */
+.input-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.input-row input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  margin-right: 10px;
+  height: 20px;
+}
+
+/* 发送按钮样式 */
+.send-btn {
+  min-width: 60px;
+  height: 40px;
+  line-height: 40px;
+  text-align: center;
+  background-color: #007aff;
+  color: white;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+.send-btn.disabled {
+  background-color: #cccccc;
+  color: #666666;
+}
+
 /* 历史记录按钮 */
 .history-row {
   display: flex;
