@@ -2,12 +2,13 @@
   "pages": [
     "pages/chat/chat",
     "pages/products/products",
-    "pages/translate/translate"
+    "pages/translate/translate",
+    "pages/webview/webview"
   ],
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#fff",
-    "navigationBarTitleText": "DeepSeek助手",
+    "navigationBarTitleText": "AI助手",
     "navigationBarTextStyle": "black"
   },
   "tabBar": {
@@ -22,7 +23,7 @@
       },
       {
         "pagePath": "pages/products/products",
-        "text": "最新产品"
+        "text": "前沿论文"
       },
       {
         "pagePath": "pages/translate/translate",

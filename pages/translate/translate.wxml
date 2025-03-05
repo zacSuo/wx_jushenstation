@@ -1,84 +1,65 @@
-<!--pages/translate/translate.wxml-->
 <view class="container">
-  <view class="translate-panel">
-    <view class="language-selector">
-      <picker 
-        mode="selector" 
-        range="{{languagesArray}}" 
-        range-key="name" 
-        value="{{sourceLangIndex}}" 
-        bindchange="changeSourceLang"
-      >
-        <view class="language-item">
-          <text>{{languages[sourceLang].name}}</text>
-          <text class="arrow">▼</text>
+  <view class="translate-container">
+    <!-- 翻译结果区域 -->
+    <view class="messages">
+      <!-- 语音识别结果 -->
+      <view class="message ai-message" wx:if="{{recognitionText && !isListening}}">
+        <view class="avatar">
+          <view class="ai-avatar-placeholder"></view>
         </view>
-      </picker>
-      
-      <view class="swap-btn" bindtap="swapLanguages">
-        <text class="swap-icon">⇄</text>
+        <view class="content">
+          <text>{{recognitionText}}</text>
+        </view>
       </view>
       
-      <picker 
-        mode="selector" 
-        range="{{languagesArray}}" 
-        range-key="name" 
-        value="{{targetLangIndex}}" 
-        bindchange="changeTargetLang"
-      >
-        <view class="language-item">
-          <text>{{languages[targetLang].name}}</text>
-          <text class="arrow">▼</text>
+      <!-- 语音翻译结果 -->
+      <view class="message user-message" wx:if="{{voiceTranslationText && !isListening}}">
+        <view class="avatar">
+          <view class="user-avatar-placeholder"></view>
         </view>
-      </picker>
-    </view>
-    
-    <view class="input-area">
-      <textarea 
-        placeholder="请输入要翻译的文本" 
-        value="{{sourceText}}" 
-        bindinput="handleSourceInput"
-        maxlength="2000"
-        auto-height
-      ></textarea>
-      <view class="text-actions">
-        <text class="char-count">{{sourceText.length}}/2000</text>
-        <view class="clear-btn" bindtap="clearInput" wx:if="{{sourceText}}">×</view>
+        <view class="content">
+          <text>{{voiceTranslationText}}</text>
+        </view>
       </view>
-    </view>
-    
-    <view class="translate-btn-area">
-      <button 
-        class="translate-btn" 
-        bindtap="translateText" 
-        disabled="{{!sourceText.trim() || isTranslating}}"
-      >
-        <text wx:if="{{!isTranslating}}">翻译</text>
-        <view wx:else class="loading-dots">
+      
+      <!-- 实时语音识别结果 -->
+      <view class="loading" wx:if="{{isListening}}">
+        <view class="loading-dots">
           <view class="dot"></view>
           <view class="dot"></view>
           <view class="dot"></view>
         </view>
-      </button>
-    </view>
-    
-    <view class="result-area" wx:if="{{translatedText}}">
-      <view class="result-header">
-        <text class="result-title">翻译结果</text>
-        <view class="copy-btn" bindtap="copyResult">复制</view>
+        <view class="realtime-text" wx:if="{{realtimeRecognitionText}}">
+          <text>{{realtimeRecognitionText}}</text>
+        </view>
       </view>
-      <view class="result-content">
-        <text>{{translatedText}}</text>
-      </view>
+      
+      <!-- 添加底部空白区域，确保最后一条消息不被按钮遮挡 -->
+      <view class="message-bottom-space"></view>
     </view>
   </view>
   
-  <view class="history-section">
-    <view class="history-header" bindtap="toggleHistory">
-      <text>翻译历史</text>
-      <text class="toggle-icon">{{showHistory ? '▲' : '▼'}}</text>
+  <view class="footer">
+    <!-- 第一行：语音按钮 -->
+    <view class="voice-row">
+      <button 
+        class="voice-btn {{isListening ? 'recording' : ''}}" 
+        bindtouchstart="startRecording" 
+        bindtouchend="stopRecording"
+        disabled="{{isTranslating}}"
+      >
+        {{isListening ? '松开结束' : '按住说话'}}
+      </button>
     </view>
     
+    <!-- 历史记录按钮 -->
+    <view class="history-row" bindtap="toggleHistory">
+      <view class="history-btn">
+        翻译历史 {{showHistory ? '▲' : '▼'}}
+      </view>
+    </view>
+    
+    <!-- 历史记录列表 -->
     <view class="history-list" wx:if="{{showHistory}}">
       <view wx:if="{{history.length === 0}}" class="empty-history">
         <text>暂无翻译历史</text>
@@ -101,7 +82,6 @@
               <text class="history-text">{{item.translatedText}}</text>
               <text class="history-lang">{{item.targetLang}}</text>
             </view>
-            <text class="history-time">{{item.time}}</text>
           </view>
           <view 
             class="delete-btn" 
@@ -110,8 +90,8 @@
           >×</view>
         </view>
         
-        <view class="clear-all-btn" bindtap="clearAllHistory">
-          <text>清空历史记录</text>
+        <view class="clear-btn" bindtap="clearAllHistory">
+          清空历史记录
         </view>
       </view>
     </view>

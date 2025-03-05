@@ -15,35 +15,31 @@
   </view>
   
   <view class="products-list">
-    <view 
-      class="product-card" 
-      wx:for="{{products}}" 
-      wx:key="id"
-      bindtap="viewProductDetail"
-      data-id="{{item.id}}"
-    >
-      <view class="product-image">
-        <view class="product-image-placeholder">{{item.name}}</view>
-      </view>
-      <view class="product-info">
-        <view class="product-name">{{item.name}}</view>
-        <view class="product-description">{{item.description}}</view>
-        <view class="product-tags">
-          <text wx:for="{{item.tags}}" wx:key="index" wx:for-item="tag" class="tag">{{tag}}</text>
+    <block wx:if="{{filteredPapers.length > 0}}">
+      <view wx:for="{{filteredPapers}}" wx:key="id" class="product-item">
+        <text class="product-name">{{item.title}}</text>
+        <text class="product-description">{{item.abstract}}</text>
+        
+        <view class="product-meta">
+          <text class="product-authors">{{item.authors}}</text>
+          <text class="product-date">{{item.date}}</text>
         </view>
-        <view class="product-footer">
-          <view class="product-price">{{item.price}}</view>
-          <view class="product-actions">
-            <button class="share-btn" catchtap="shareProduct" data-id="{{item.id}}">
-              <text class="icon">↗</text>
-            </button>
+        
+        <view class="product-tags">
+          <view wx:for="{{item.tags}}" wx:for-item="tag" wx:key="*this" class="tag">
+            {{tag}}
           </view>
         </view>
+        
+        <view class="product-actions">
+          <button bindtap="shareProduct" data-id="{{item.id}}">分享</button>
+          <button bindtap="navigateToLink" data-link="{{item.link}}">阅读论文</button>
+        </view>
       </view>
+    </block>
+    
+    <view wx:if="{{filteredPapers.length === 0}}" class="empty-state">
+      当前分类暂无论文
     </view>
-  </view>
-  
-  <view class="empty-tip" wx:if="{{products.length === 0}}">
-    <text>暂无产品信息</text>
   </view>
 </view>

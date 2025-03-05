@@ -52,7 +52,24 @@ Page({
           content: '您好！我是DeepSeek助手，有什么可以帮您？'
         }
       ]
+    }, () => {
+      this.scrollToBottom();
     })
+  },
+
+  // 滚动到底部
+  scrollToBottom() {
+    setTimeout(() => {
+      wx.createSelectorQuery()
+        .select('.chat-container')
+        .node()
+        .exec((res) => {
+          if (res && res[0] && res[0].node) {
+            const container = res[0].node;
+            container.scrollTop = container.scrollHeight;
+          }
+        });
+    }, 100);
   },
 
   // 开始录音
@@ -169,6 +186,8 @@ Page({
                 content: text
               }],
               isLoading: true
+            }, () => {
+              this.scrollToBottom();
             })
             
             // 调用AI对话API
@@ -180,6 +199,8 @@ Page({
                   content: chatResult.data.response
                 }],
                 isLoading: false
+              }, () => {
+                this.scrollToBottom();
               })
             }, (error) => {
               console.error('AI对话失败', error)
@@ -193,6 +214,8 @@ Page({
                   content: mockResponse
                 }],
                 isLoading: false
+              }, () => {
+                this.scrollToBottom();
               })
               
               wx.showToast({
@@ -214,6 +237,8 @@ Page({
                 content: mockText
               }],
               isLoading: true
+            }, () => {
+              this.scrollToBottom();
             })
             
             // 使用模拟响应
@@ -226,6 +251,8 @@ Page({
                   content: mockResponse
                 }],
                 isLoading: false
+              }, () => {
+                this.scrollToBottom();
               })
               
               wx.showToast({
@@ -258,6 +285,19 @@ Page({
     })
   },
 
+  // 发送按钮点击处理
+  sendMessageHandler() {
+    const { inputValue, recording, isLoading } = this.data
+    
+    // 检查输入是否为空或是否在录音/加载中
+    if (!inputValue.trim() || recording || isLoading) {
+      return
+    }
+    
+    // 调用发送消息函数
+    this.sendMessage()
+  },
+
   // 发送文本消息
   sendMessage() {
     const { inputValue } = this.data
@@ -279,6 +319,8 @@ Page({
       }],
       inputValue: '',
       isLoading: true
+    }, () => {
+      this.scrollToBottom();
     })
     
     // 调用AI对话API
@@ -290,6 +332,8 @@ Page({
           content: result.data.response
         }],
         isLoading: false
+      }, () => {
+        this.scrollToBottom();
       })
     }, (error) => {
       console.error('AI对话失败', error)
@@ -303,6 +347,8 @@ Page({
           content: mockResponse
         }],
         isLoading: false
+      }, () => {
+        this.scrollToBottom();
       })
       
       wx.showToast({
@@ -326,6 +372,8 @@ Page({
                 content: '您好！我是DeepSeek助手，有什么可以帮您？'
               }
             ]
+          }, () => {
+            this.scrollToBottom();
           })
           wx.showToast({
             title: '已清空对话',
