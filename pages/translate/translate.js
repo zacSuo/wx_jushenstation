@@ -1,28 +1,5 @@
 const util = require('../../utils/util.js')
 
-// 模拟翻译响应
-function getMockTranslation(text, targetLang) {
-  // 简单的模拟翻译（仅用于开发测试）
-  const mockTranslations = {
-    'zh': {
-      'en': '这是一段中文翻译成英文的模拟文本。This is a mock translation from Chinese to English.'
-    },
-    'en': {
-      'zh': 'This is a mock translation from English to Chinese. 这是一段英文翻译成中文的模拟文本。'
-    }
-  };
-  
-  // 如果有对应的模拟翻译，则返回
-  if (mockTranslations[targetLang] && mockTranslations[targetLang]['zh']) {
-    return mockTranslations[targetLang]['zh'];
-  } else if (mockTranslations['zh'] && mockTranslations['zh'][targetLang]) {
-    return mockTranslations['zh'][targetLang];
-  }
-  
-  // 默认返回
-  return `${text}\n\n[模拟翻译]:\n这是一段模拟翻译文本，仅用于开发测试。实际使用时将连接到DeepSeek API获取真实翻译。`;
-}
-
 Page({
   data: {
     sourceText: '',
@@ -50,7 +27,8 @@ Page({
     translationMode: 'text', // 'text' 或 'voice'
     // 新增变量用于实时语音识别
     realtimeRecognitionText: '',
-    speechRecognizer: null
+    speechRecognizer: null,
+    autoPlay: true
   },
 
   onLoad: function (options) {
@@ -219,18 +197,10 @@ Page({
         wx.hideLoading()
         console.error('语音识别失败', err)
         
-        // 使用模拟数据
-        const mockText = "这是模拟的语音识别结果，用于开发测试。"
-        
-        this.setData({ 
-          recognitionText: mockText,
-          translationMode: 'voice'
-        }, () => {
-          this.scrollToBottom();
+        wx.showToast({
+          title: '语音识别失败',
+          icon: 'none'
         })
-        
-        // 自动翻译
-        this.translateVoiceText()
       }
     )
   },
@@ -289,91 +259,51 @@ Page({
     }
   },
 
-  // 翻译文本
-  translateText: function() {
-    const { sourceText, targetLang } = this.data
-    
-    if (!sourceText.trim()) {
-      return
-    }
-    
-    this.setData({ isTranslating: true })
-    wx.showLoading({ title: '翻译中...' })
-    
-    // 调用翻译API
-    util.translateText(
-      sourceText,
-      targetLang,
-      (res) => {
-        wx.hideLoading()
-        this.setData({ isTranslating: false })
-        
-        if (res.data && res.data.translation) {
-          const translatedText = res.data.translation
-          
-          this.setData({ translatedText })
-          
-          // 保存到历史记录
-          this.saveToHistory(sourceText, translatedText, this.data.sourceLang, targetLang)
-          
-          // 播放翻译结果
-          this.playTranslation()
-        } else {
-          wx.showToast({
-            title: '翻译失败',
-            icon: 'none'
-          })
-        }
-      },
-      (err) => {
-        wx.hideLoading()
-        console.error('翻译失败', err)
-        this.setData({ isTranslating: false })
-        
-        // 使用模拟翻译
-        const mockTranslation = getMockTranslation(sourceText, targetLang)
-        this.setData({ translatedText: mockTranslation })
-        
-        // 保存到历史记录
-        this.saveToHistory(sourceText, mockTranslation, this.data.sourceLang, targetLang)
-        
-        // 播放翻译结果
-        this.playTranslation()
-      }
-    )
-  },
-
   // 翻译语音识别的文本
   translateVoiceText: function() {
     const { recognitionText, targetLang } = this.data
     
-    if (!recognitionText.trim()) {
+    if (!recognitionText) {
+      wx.showToast({
+        title: '没有可翻译的文本',
+        icon: 'none'
+      })
       return
     }
     
-    this.setData({ isTranslating: true })
     wx.showLoading({ title: '翻译中...' })
     
     // 调用翻译API
-    util.translateText(
-      recognitionText,
-      targetLang,
+    util.translateText(recognitionText, targetLang, 
       (res) => {
         wx.hideLoading()
-        this.setData({ isTranslating: false })
         
         if (res.data && res.data.translation) {
           const translatedText = res.data.translation
           
-          this.setData({ voiceTranslationText: translatedText }, () => {
-            this.scrollToBottom();
+          // 添加到历史记录
+          const newHistory = [...this.data.history]
+          newHistory.push({
+            original: recognitionText,
+            translated: translatedText,
+            targetLanguage: targetLang,
+            timestamp: new Date().getTime()
           })
           
-          // 保存到历史记录
-          this.saveToHistory(recognitionText, translatedText, this.data.sourceLang, targetLang)
+          this.setData({
+            translatedText: translatedText,
+            history: newHistory
+          }, () => {
+            this.scrollToBottom();
+            
+            // 自动播放翻译结果
+            if (this.data.autoPlay) {
+              this.playTranslatedText()
+            }
+          })
           
-          // 播放翻译结果
-          this.playVoiceTranslation()
+          // 保存历史记录
+          wx.setStorageSync('translateHistory', newHistory)
         } else {
           wx.showToast({
             title: '翻译失败',
@@ -384,19 +314,78 @@ Page({
       (err) => {
         wx.hideLoading()
         console.error('翻译失败', err)
-        this.setData({ isTranslating: false })
         
-        // 使用模拟翻译
-        const mockTranslation = getMockTranslation(recognitionText, targetLang)
-        this.setData({ voiceTranslationText: mockTranslation }, () => {
-          this.scrollToBottom();
+        wx.showToast({
+          title: '翻译请求失败',
+          icon: 'none'
         })
+      }
+    )
+  },
+  
+  // 翻译手动输入的文本
+  translateInputText: function() {
+    const { inputText, targetLang } = this.data
+    
+    if (!inputText.trim()) {
+      wx.showToast({
+        title: '请输入要翻译的文本',
+        icon: 'none'
+      })
+      return
+    }
+    
+    wx.showLoading({ title: '翻译中...' })
+    
+    // 调用翻译API
+    util.translateText(inputText, targetLang, 
+      (res) => {
+        wx.hideLoading()
         
-        // 保存到历史记录
-        this.saveToHistory(recognitionText, mockTranslation, this.data.sourceLang, targetLang)
+        if (res.data && res.data.translation) {
+          const translatedText = res.data.translation
+          
+          // 添加到历史记录
+          const newHistory = [...this.data.history]
+          newHistory.push({
+            original: inputText,
+            translated: translatedText,
+            targetLanguage: targetLang,
+            timestamp: new Date().getTime()
+          })
+          
+          this.setData({
+            recognitionText: inputText,
+            translatedText: translatedText,
+            inputText: '',
+            translationMode: 'text',
+            history: newHistory
+          }, () => {
+            this.scrollToBottom();
+            
+            // 自动播放翻译结果
+            if (this.data.autoPlay) {
+              this.playTranslatedText()
+            }
+          })
+          
+          // 保存历史记录
+          wx.setStorageSync('translateHistory', newHistory)
+        } else {
+          wx.showToast({
+            title: '翻译失败',
+            icon: 'none'
+          })
+        }
+      },
+      (err) => {
+        wx.hideLoading()
+        console.error('翻译失败', err)
         
-        // 播放翻译结果
-        this.playVoiceTranslation()
+        wx.showToast({
+          title: '翻译请求失败',
+          icon: 'none'
+        })
       }
     )
   },
@@ -529,39 +518,168 @@ Page({
 
   // 播放翻译结果 (文本输入翻译)
   playTranslation: function() {
-    const innerAudioContext = wx.createInnerAudioContext();
-    innerAudioContext.src = `YOUR_TEXT_TO_SPEECH_API_URL?text=${encodeURIComponent(this.data.translatedText)}&lang=${this.data.targetLang}`; // 替换为你的文本转语音API地址
-    innerAudioContext.play();
+    // 使用微信小程序的文本转语音接口
+    wx.showLoading({ title: '加载语音...' })
+    
+    // 调用Deepseek的文本转语音API
+    const text = encodeURIComponent(this.data.translatedText)
+    const lang = this.data.targetLang
+    
+    // 创建音频上下文
+    const innerAudioContext = wx.createInnerAudioContext()
+    
+    // 设置音频源为Deepseek的文本转语音API
+    innerAudioContext.src = `https://api.deepseek.com/v1/audio/speech?text=${text}&voice=deepseek_tts&language=${lang}`
+    
+    // 设置请求头
+    wx.request({
+      url: `https://api.deepseek.com/v1/audio/speech`,
+      method: 'POST',
+      header: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${util.DEEPSEEK_API_KEY}`
+      },
+      data: {
+        model: 'deepseek-tts',
+        input: this.data.translatedText,
+        voice: 'default'
+      },
+      responseType: 'arraybuffer',
+      success: (res) => {
+        // 将返回的音频数据转为临时文件
+        const fs = wx.getFileSystemManager()
+        const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio.mp3`
+        
+        fs.writeFile({
+          filePath: tempFilePath,
+          data: res.data,
+          encoding: 'binary',
+          success: () => {
+            // 播放音频
+            innerAudioContext.src = tempFilePath
+            innerAudioContext.play()
+            wx.hideLoading()
+          },
+          fail: (err) => {
+            console.error('写入音频文件失败', err)
+            wx.hideLoading()
+            wx.showToast({
+              title: '语音生成失败',
+              icon: 'none'
+            })
+          }
+        })
+      },
+      fail: (err) => {
+        console.error('文本转语音请求失败', err)
+        wx.hideLoading()
+        wx.showToast({
+          title: '语音生成请求失败',
+          icon: 'none'
+        })
+      }
+    })
+    
     innerAudioContext.onPlay(() => {
-      console.log('开始播放翻译');
-    });
+      console.log('开始播放翻译')
+    })
+    
     innerAudioContext.onError((res) => {
-      console.log(res.errMsg);
-      console.log(res.errCode);
+      console.log(res.errMsg)
+      console.log(res.errCode)
+      wx.hideLoading()
       // 播放失败时显示提示
       wx.showToast({
         title: '语音播放失败',
         icon: 'none'
-      });
-    });
+      })
+    })
   },
 
   // 播放翻译结果 (语音输入翻译)
   playVoiceTranslation: function () {
-    const innerAudioContext = wx.createInnerAudioContext();
-    innerAudioContext.src = `YOUR_TEXT_TO_SPEECH_API_URL?text=${encodeURIComponent(this.data.voiceTranslationText)}&lang=${this.data.targetLang}`; // 替换为你的文本转语音API地址
-    innerAudioContext.play();
+    // 使用微信小程序的文本转语音接口
+    wx.showLoading({ title: '加载语音...' })
+    
+    // 调用Deepseek的文本转语音API
+    const text = encodeURIComponent(this.data.voiceTranslationText || this.data.translatedText)
+    const lang = this.data.targetLang
+    
+    // 创建音频上下文
+    const innerAudioContext = wx.createInnerAudioContext()
+    
+    // 调用Deepseek的文本转语音API
+    wx.request({
+      url: `https://api.deepseek.com/v1/audio/speech`,
+      method: 'POST',
+      header: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${util.DEEPSEEK_API_KEY}`
+      },
+      data: {
+        model: 'deepseek-tts',
+        input: text,
+        voice: 'default'
+      },
+      responseType: 'arraybuffer',
+      success: (res) => {
+        // 将返回的音频数据转为临时文件
+        const fs = wx.getFileSystemManager()
+        const tempFilePath = `${wx.env.USER_DATA_PATH}/temp_audio.mp3`
+        
+        fs.writeFile({
+          filePath: tempFilePath,
+          data: res.data,
+          encoding: 'binary',
+          success: () => {
+            // 播放音频
+            innerAudioContext.src = tempFilePath
+            innerAudioContext.play()
+            wx.hideLoading()
+          },
+          fail: (err) => {
+            console.error('写入音频文件失败', err)
+            wx.hideLoading()
+            wx.showToast({
+              title: '语音生成失败',
+              icon: 'none'
+            })
+          }
+        })
+      },
+      fail: (err) => {
+        console.error('文本转语音请求失败', err)
+        wx.hideLoading()
+        wx.showToast({
+          title: '语音生成请求失败',
+          icon: 'none'
+        })
+      }
+    })
+    
     innerAudioContext.onPlay(() => {
-      console.log('开始播放语音翻译');
-    });
+      console.log('开始播放语音翻译')
+    })
+    
     innerAudioContext.onError((res) => {
-      console.log(res.errMsg);
-      console.log(res.errCode);
+      console.log(res.errMsg)
+      console.log(res.errCode)
+      wx.hideLoading()
       // 播放失败时显示提示
       wx.showToast({
         title: '语音播放失败',
         icon: 'none'
-      });
-    });
-  }
+      })
+    })
+  },
+
+  // 播放翻译结果
+  playTranslatedText: function() {
+    // 根据当前模式选择播放方法
+    if (this.data.translationMode === 'voice') {
+      this.playVoiceTranslation()
+    } else {
+      this.playTranslation()
+    }
+  },
 })

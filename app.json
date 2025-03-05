@@ -11,6 +11,11 @@
     "navigationBarTitleText": "AI助手",
     "navigationBarTextStyle": "black"
   },
+  "permissions": {
+    "scope.record": {
+      "desc": "需要您的录音权限以进行语音交互"
+    }
+  },
   "tabBar": {
     "color": "#999",
     "selectedColor": "#1296db",

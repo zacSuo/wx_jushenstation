@@ -1,5 +1,5 @@
 {
-  "name": "deepseek-assistant",
+  "name": "-assistant",
   "version": "1.0.0",
   "description": "DeepSeek助手微信小程序云托管服务",
   "main": "server.js",
