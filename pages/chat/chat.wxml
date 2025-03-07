@@ -24,7 +24,7 @@
   </view>
   <view class="footer">
     <!-- 第一行：语音按钮 -->
-    <view class="voice-row">
+    <view class="voice-row" hidden>
       <button 
         class="voice-btn {{recording ? 'recording' : ''}}" 
         bindtouchstart="startRecord" 

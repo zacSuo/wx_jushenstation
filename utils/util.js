@@ -117,8 +117,7 @@ const callDeepseekAPI = (endpoint, data, success, fail) => {
           }
         })
       }
-    }, 500)
-    
+    }, 3000) // 增加延迟至3秒，模拟真实API调用时间
     return
   }
   
@@ -225,7 +224,7 @@ const callTencentAPI = (endpoint, data, success, fail) => {
     
     setTimeout(() => {
       if (success) success(mockResponse);
-    }, 1000);
+    }, 3000); // 增加延迟至3秒，模拟真实API调用时间
     
     return;
   }
@@ -354,7 +353,7 @@ const recognizeAudio = (audioBase64, success, fail) => {
           mock: true
         }
       });
-    }, 1000);
+    }, 3000); // 增加延迟至3秒，模拟真实API调用时间
     return;
   }
   
@@ -423,7 +422,7 @@ const recognizeAudioWithTencent = (audioBase64, success, fail) => {
           mock: true
         }
       });
-    }, 1000);
+    }, 3000); // 增加延迟至3秒，模拟真实API调用时间
     return;
   }
   
@@ -533,7 +532,7 @@ const chatWithTencent = (messages, success, fail) => {
           mock: true
         }
       });
-    }, 1000);
+    }, 3000); // 增加延迟至3秒，模拟真实API调用时间
     return;
   }
   
@@ -619,13 +618,17 @@ const translateText = (text, targetLang, success, fail) => {
         }
       }
       
-      if (success) {
-        success({
-          translation: translatedText,
-          original: text,
-          targetLang: targetLang
-        });
-      }
+      // 添加延迟，模拟真实API调用时间
+      setTimeout(() => {
+        if (success) {
+          success({
+            translation: translatedText,
+            original: text,
+            targetLang: targetLang
+          });
+        }
+      }, 3000);
+      
       return;
     }
     
@@ -652,6 +655,83 @@ const translateText = (text, targetLang, success, fail) => {
   }, fail);
 };
 
+// 概念解释 (使用Deepseek的聊天API进行概念解释)
+const explainConcept = (concept, success, fail) => {
+  callDeepseekAPI('chat/completions', {
+    model: 'deepseek-chat',
+    messages: [
+      {
+        role: 'system',
+        content: `作为人工智能领域专家，请对用户提供的概念或术语进行详细解释，按照以下结构，并直接输出方便手机阅读的文本结果（非markdown）：
+1. 基本概念解释：简明扼要地解释概念的基本含义和背景。
+2. 智能化角度分析：从人工智能和技术角度对概念进行深入分析，包括相关技术原理和实现方式。
+3. 实际应用步骤：详细说明在用户生活工作中如何实现或应用这个概念的具体步骤。
+4. 对普通人的影响：分析这个概念如何影响普通人的日常生活和工作。
+
+请确保回答专业、全面且易于理解。`
+      },
+      {
+        role: 'user',
+        content: concept
+      }
+    ],
+    max_tokens: 2000,
+    temperature: 0.5
+  }, (res) => {
+    // 如果是模拟模式，直接返回模拟解释结果
+    if (USE_MOCK_MODE && res.data && res.data.mock) {
+      let explanation = `[模拟解释] 
+## 基本概念解释
+"${concept}"是一个重要的概念，通常与信息技术或人工智能相关。
+
+## 智能化角度分析
+从技术角度看，这个概念涉及到数据处理和算法应用。
+
+## 实际应用步骤
+1. 了解基本原理
+2. 学习相关技术
+3. 实践应用
+
+## 对普通人的影响
+这个概念可能会改变人们的工作方式和生活习惯。
+
+注：由于API不可用，这是模拟生成的解释内容。`;
+      
+      // 添加延迟，模拟真实API调用时间
+      setTimeout(() => {
+        if (success) {
+          success({
+            explanation: explanation,
+            concept: concept
+          });
+        }
+      }, 3000);
+      
+      return;
+    }
+    
+    // 正常API响应处理
+    if (res.data && res.data.choices && res.data.choices.length > 0) {
+      const explanation = res.data.choices[0].message.content;
+      
+      if (success) {
+        success({
+          explanation: explanation,
+          concept: concept
+        });
+      }
+    } else {
+      console.error('概念解释API返回格式错误', res);
+      if (fail) {
+        fail({
+          errMsg: '概念解释API返回格式错误',
+          details: res
+        });
+      }
+    }
+  }, fail);
+};
+
 module.exports = {
   formatTime,
   recognizeAudio,
@@ -659,6 +739,7 @@ module.exports = {
   chatWithAI,
   chatWithTencent,
   translateText,
+  explainConcept,
   DEEPSEEK_API_KEY,
   DEEPSEEK_API_URL,
   TENCENT_API_KEY,

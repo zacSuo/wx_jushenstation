@@ -34,9 +34,9 @@ Page({
   },
 
   onLoad: function (options) {
-    console.log('翻译页面加载')
+    console.log('概念解释页面加载')
     // 从本地存储加载历史记录
-    const history = wx.getStorageSync('translateHistory') || []
+    const history = wx.getStorageSync('conceptHistory') || []
     this.setData({ history })
     
     // 初始化录音管理器
@@ -103,7 +103,7 @@ Page({
   },
   
   onShow: function() {
-    console.log('翻译页面显示')
+    console.log('概念解释页面显示')
     // 重置页面状态
     this.setData({
       isListening: false,
@@ -112,7 +112,7 @@ Page({
     })
     
     // 从本地存储重新加载历史记录
-    const history = wx.getStorageSync('translateHistory') || []
+    const history = wx.getStorageSync('conceptHistory') || []
     this.setData({ history })
     
     // 确保页面元素正确显示
@@ -245,70 +245,65 @@ Page({
   },
 
   // 发送文本进行翻译
-  sendTextToTranslate: function() {
-    const { inputText } = this.data
+  sendTextToTranslate() {
+    const text = this.data.inputText.trim()
     
-    if (!inputText.trim()) {
+    if (!text) {
       wx.showToast({
-        title: '请输入要翻译的文本',
+        title: '请输入要解释的概念',
         icon: 'none'
       })
       return
     }
     
+    // 显示加载中
     this.setData({
       isTranslating: true
     })
     
-    wx.showLoading({ title: '翻译中...' })
+    wx.showLoading({
+      title: '解释中...'
+    })
     
-    // 确定源语言和目标语言
-    const sourceLang = this.data.sourceLang
-    const targetLang = this.data.targetLang
+    // 添加用户输入到消息列表
+    this.setData({
+      recognitionText: text,
+      translationMode: 'text'
+    }, () => {
+      this.scrollToBottom()
+    })
     
-    // 调用翻译API
-    util.translateText(inputText, targetLang, 
+    // 调用概念解释API
+    util.explainConcept(text, 
       (res) => {
         wx.hideLoading()
         
-        if (res && res.translation) {
-          const translatedText = res.translation
-          
-          // 保存到历史记录
-          this.saveToHistory(inputText, translatedText, sourceLang, targetLang)
-          
-          this.setData({
-            recognitionText: inputText,
-            voiceTranslationText: translatedText,
-            inputText: '',
-            isTranslating: false
-          }, () => {
-            this.scrollToBottom();
-            
-            // 自动播放翻译结果
-            if (this.data.autoPlay) {
-              this.playVoiceTranslation()
-            }
-          })
-        } else {
-          this.setData({
-            isTranslating: false
-          })
-          wx.showToast({
-            title: '翻译失败',
-            icon: 'none'
-          })
+        this.setData({
+          voiceTranslationText: res.explanation,
+          isTranslating: false,
+          inputText: ''
+        }, () => {
+          this.scrollToBottom()
+        })
+        
+        // 保存到历史记录
+        this.saveToHistory(text, res.explanation)
+        
+        // 如果启用了自动播放，则播放翻译结果
+        if (this.data.autoPlay) {
+          this.playTranslatedText()
         }
       },
       (err) => {
+        console.error('概念解释失败', err)
         wx.hideLoading()
-        console.error('翻译失败', err)
         
         this.setData({
           isTranslating: false
         })
+        
         wx.showToast({
-          title: '翻译请求失败',
+          title: '解释失败，请重试',
           icon: 'none'
         })
       }
@@ -370,63 +365,56 @@ Page({
   },
 
   // 翻译语音识别的文本
-  translateVoiceText: function() {
-    const { recognitionText, targetLang } = this.data
+  translateVoiceText() {
+    const text = this.data.recognitionText.trim()
     
-    if (!recognitionText) {
-      wx.showToast({
-        title: '没有可翻译的文本',
-        icon: 'none'
+    if (!text) {
+      this.setData({
+        isTranslating: false
       })
+      wx.hideLoading()
       return
     }
     
-    wx.showLoading({ title: '翻译中...' })
+    // 显示加载中
+    this.setData({
+      isTranslating: true
+    })
     
-    // 调用翻译API
-    util.translateText(recognitionText, targetLang, 
+    wx.showLoading({
+      title: '解释中...'
+    })
+    
+    // 调用概念解释API
+    util.explainConcept(text, 
       (res) => {
         wx.hideLoading()
         
-        if (res && res.translation) {
-          const translatedText = res.translation
-          
-          // 添加到历史记录
-          const newHistory = [...this.data.history]
-          newHistory.push({
-            original: recognitionText,
-            translated: translatedText,
-            targetLanguage: targetLang,
-            timestamp: new Date().getTime()
-          })
-          
-          this.setData({
-            translatedText: translatedText,
-            history: newHistory
-          }, () => {
-            this.scrollToBottom();
-            
-            // 自动播放翻译结果
-            if (this.data.autoPlay) {
-              this.playTranslatedText()
-            }
-          })
-          
-          // 保存历史记录
-          wx.setStorageSync('translateHistory', newHistory)
-        } else {
-          wx.showToast({
-            title: '翻译失败',
-            icon: 'none'
-          })
+        this.setData({
+          voiceTranslationText: res.explanation,
+          isTranslating: false
+        }, () => {
+          this.scrollToBottom()
+        })
+        
+        // 保存到历史记录
+        this.saveToHistory(text, res.explanation)
+        
+        // 如果启用了自动播放，则播放翻译结果
+        if (this.data.autoPlay) {
+          this.playVoiceTranslation()
         }
       },
       (err) => {
+        console.error('概念解释失败', err)
         wx.hideLoading()
-        console.error('翻译失败', err)
+        
+        this.setData({
+          isTranslating: false
+        })
         
         wx.showToast({
-          title: '翻译请求失败',
+          title: '解释失败，请重试',
           icon: 'none'
         })
       }
@@ -480,7 +468,7 @@ Page({
           })
           
           // 保存历史记录
-          wx.setStorageSync('translateHistory', newHistory)
+          wx.setStorageSync('conceptHistory', newHistory)
         } else {
           wx.showToast({
             title: '翻译失败',
@@ -501,31 +489,38 @@ Page({
   },
 
   // 保存到历史记录
-  saveToHistory: function(sourceText, translatedText, sourceLang, targetLang) {
-    if (!sourceText || !translatedText) return;
+  saveToHistory(sourceText, explanationText) {
+    // 限制历史记录数量
+    const MAX_HISTORY = 20
     
-    // 创建历史记录项
+    // 创建新的历史记录项
     const historyItem = {
-      id: new Date().getTime().toString(),
+      id: Date.now().toString(),
       sourceText: sourceText,
-      translatedText: translatedText,
-      sourceLang: sourceLang === 'zh' ? '中文' : '英语',
-      targetLang: targetLang === 'zh' ? '中文' : '英语',
+      translatedText: explanationText,
       timestamp: new Date().getTime()
-    };
+    }
     
     // 添加到历史记录
-    const history = [...this.data.history];
-    history.unshift(historyItem); // 将新记录添加到开头
+    let history = [...this.data.history]
     
-    // 限制历史记录数量，最多保留50条
-    if (history.length > 50) {
-      history.pop();
+    // 检查是否已存在相同的条目，如果存在则移除旧的
+    const existingIndex = history.findIndex(item => item.sourceText === sourceText)
+    if (existingIndex !== -1) {
+      history.splice(existingIndex, 1)
+    }
+    
+    // 添加新条目到开头
+    history.unshift(historyItem)
+    
+    // 限制历史记录数量
+    if (history.length > MAX_HISTORY) {
+      history = history.slice(0, MAX_HISTORY)
     }
     
     // 更新状态并保存到本地存储
     this.setData({ history });
-    wx.setStorageSync('translateHistory', history);
+    wx.setStorageSync('conceptHistory', history);
   },
 
   // 复制翻译结果
@@ -589,7 +584,7 @@ Page({
     history.splice(index, 1)
     
     this.setData({ history })
-    wx.setStorageSync('translateHistory', history)
+    wx.setStorageSync('conceptHistory', history)
     
     wx.showToast({
       title: '已删除',
@@ -606,7 +601,7 @@ Page({
       success: (res) => {
         if (res.confirm) {
           this.setData({ history: [] })
-          wx.setStorageSync('translateHistory', [])
+          wx.setStorageSync('conceptHistory', [])
           
           wx.showToast({
             title: '已清空历史记录',

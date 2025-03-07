@@ -11,7 +11,7 @@
   flex: 1;
   overflow-y: auto;
   padding: 10px;
-  padding-bottom: 230px; /* 为底部按钮留出足够空间 */
+  padding-bottom: 150px; /* 减少底部空间，因为语音按钮已隐藏 */
 }
 
 /* 消息样式 */

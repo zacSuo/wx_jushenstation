@@ -41,7 +41,7 @@
 
   <view class="footer">
     <!-- 第一行：语音按钮 -->
-    <view class="voice-row">
+    <view class="voice-row" hidden>
       <button class="voice-btn {{isListening ? 'recording' : ''}}" bindtouchstart="startRecording" bindtouchend="stopRecording" disabled="{{isTranslating}}">
         {{isListening ? '松开结束' : '按住说话'}}
       </button>
@@ -49,23 +49,23 @@
 
     <!-- 第二行：输入框和发送按钮 -->
     <view class="input-row">
-      <input type="text" placeholder="输入要翻译的文本..." value="{{inputText}}" bindinput="handleInputText" disabled="{{isListening || isTranslating}}" />
+      <input type="text" placeholder="输入要解释的概念..." value="{{inputText}}" bindinput="handleInputText" disabled="{{isListening || isTranslating}}" />
       <view class="send-btn {{!inputText.trim() || isListening || isTranslating ? 'disabled' : ''}}" bindtap="sendTextToTranslate">
-        翻译
+        解释
       </view>
     </view>
 
     <!-- 历史记录按钮 -->
     <view class="history-row" bindtap="toggleHistory">
       <view class="history-btn">
-        翻译历史 {{showHistory ? '▲' : '▼'}}
+        解释历史 {{showHistory ? '▲' : '▼'}}
       </view>
     </view>
 
     <!-- 历史记录列表 -->
     <view class="history-list" wx:if="{{showHistory}}">
       <view wx:if="{{history.length === 0}}" class="empty-history">
-        <text>暂无翻译历史</text>
+        <text>暂无解释历史</text>
       </view>
 
       <view wx:else>
